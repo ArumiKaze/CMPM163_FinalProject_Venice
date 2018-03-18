@@ -1,0 +1,135 @@
+<html lang="en">
+	<head>
+		<title>Clouds</title>
+		<meta charset="utf-8">
+		<style>
+			body {
+			  	margin: 0px;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="container"></div>
+		<script type="text/javascript" src="js/three.js"></script>
+		<script src="js/OrbitControls.js"></script>
+		<script src="js/dat.gui.min.js"></script>
+		
+		<!--Implementation is an expanded/modified version of MrDoob's webgl clouds found at http://mrdoob.com/lab/javascript/webgl/clouds/-->
+		<script id="vs" type="x-shader/x-vertex">
+			varying vec2 vUv;
+
+			void main() {
+				vUv = uv;
+				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+			}
+		</script>
+
+		<script id="fs" type="x-shader/x-fragment">
+
+			uniform sampler2D map;
+
+			uniform vec3 fogColor;
+			uniform float fogNear;
+			uniform float fogFar;
+
+			varying vec2 vUv;
+
+			void main() {
+				float depth = gl_FragCoord.z / gl_FragCoord.w;
+				float fogFactor = smoothstep( fogNear, fogFar, depth );
+				gl_FragColor = texture2D( map, vUv );
+				gl_FragColor.w *= pow( gl_FragCoord.z, 20.0 );
+			}
+
+		</script>
+
+		<script type="text/javascript">
+			var container;
+			var camera, scene, renderer;
+			var cloud, cloudGeometry, cloudMaterial;
+			var controls;
+
+			var start_time = Date.now();
+
+			init();
+			animate();
+
+			function init() {
+				container = document.getElementById( 'container' );
+
+				camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 20000 );
+				camera.position.y = 400;
+				camera.position.z = 500;
+
+				controls = new THREE.OrbitControls( camera, container );
+				controls.enablePan = true;
+				controls.update();
+
+				scene = new THREE.Scene();
+
+				//large geometry which holds all the clouds
+				cloudGeometry = new THREE.Geometry();
+
+				var texture = new THREE.TextureLoader().load( "cloud10.png");
+
+				cloudMaterial = new THREE.ShaderMaterial( {
+					uniforms: {
+						"map": { type: "t", value: texture },
+					},
+					vertexShader: document.getElementById( 'vs' ).textContent,
+					fragmentShader: document.getElementById( 'fs' ).textContent,
+					depthWrite: false,
+					depthTest: false,
+					transparent: true
+				} );
+
+				var cloudMeshIndividual = new THREE.Mesh( new THREE.PlaneGeometry( 80, 80 ) ); //changing the plane size will also change cloud size
+				var cloudSpreadWidth = 20000; //this number needs to be quite high in order for changes to be noticable
+				var cloudProximity = 10; //this determines how close the clouds are together
+				var cloudDepth = 800; //this should be changed with cloudSpreadWidth in order to create more cloud layers
+				var cloudSize = 10.5; //this is one factor in determining the size of the clouds ~ it should be changed alongsize the (x,y) of the plane
+
+				//this loop creates i amount clouds in the cloud object
+				for ( var i = 0; i < 10000; i++ ) {
+					cloudMeshIndividual.position.x = Math.random() * cloudSpreadWidth;
+					cloudMeshIndividual.position.y = i * cloudProximity - 10000;
+					cloudMeshIndividual.position.z = - Math.random() * Math.random() * cloudDepth;
+					cloudMeshIndividual.rotation.z = Math.random() * Math.PI;
+					cloudMeshIndividual.scale.x = cloudMeshIndividual.scale.y = Math.random() * cloudSize + 1.5;
+					
+					//each cloud "plane" is merged with the larger geometry ~ this improves performance
+					cloudMeshIndividual.updateMatrix();
+					cloudGeometry.merge(cloudMeshIndividual.geometry, cloudMeshIndividual.matrix);
+				}
+
+				//this is the merged cloud object
+				cloud = new THREE.Mesh( cloudGeometry, cloudMaterial );
+				scene.add( cloud );
+
+				renderer = new THREE.WebGLRenderer( { antialias: false } );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+			}
+
+			function animate() {
+				requestAnimationFrame( animate );
+				render();
+			}
+
+			function render() {
+				position = ( ( Date.now() - start_time ) * 0.03 ) % 8000;
+				cloud.position.y += 0.5; //this is the speed at which the clouds move across the top of the scene
+				renderer.render( scene, camera );
+			}
+
+			function onWindowResize( event ) {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+		</script>
+	</body>
+</html>
