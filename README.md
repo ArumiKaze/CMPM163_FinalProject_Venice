@@ -7,5 +7,5 @@ Matt Loyola ~ Clouds, Water
 
 
 Instructions:  
-~Pan the camera with the left mouse button.  
+~Adjust the camera view with the left mouse button.  
 ~Adjust the GUI sliders to change aspects of the scene.  
