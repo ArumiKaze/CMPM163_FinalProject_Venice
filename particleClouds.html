@@ -14,42 +14,17 @@
 		<script type="text/javascript" src="js/three.js"></script>
 		<script src="js/OrbitControls.js"></script>
 		<script src="js/dat.gui.min.js"></script>
+
+		<script src="cloudShader1.js"></script>
+		<script src="noiseCloudShader.js"></script>
 		
-		<!--Implementation is an expanded/modified version of MrDoob's webgl clouds found at http://mrdoob.com/lab/javascript/webgl/clouds/-->
-		<script id="vs" type="x-shader/x-vertex">
-			varying vec2 vUv;
-
-			void main() {
-				vUv = uv;
-				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-			}
-		</script>
-
-		<script id="fs" type="x-shader/x-fragment">
-
-			uniform sampler2D map;
-
-			uniform vec3 fogColor;
-			uniform float fogNear;
-			uniform float fogFar;
-
-			varying vec2 vUv;
-
-			void main() {
-				float depth = gl_FragCoord.z / gl_FragCoord.w;
-				float fogFactor = smoothstep( fogNear, fogFar, depth );
-				gl_FragColor = texture2D( map, vUv );
-				gl_FragColor.w *= pow( gl_FragCoord.z, 20.0 );
-			}
-
-		</script>
-
 		<script type="text/javascript">
 			var container;
 			var camera, scene, renderer;
-			var cloud, cloudGeometry, cloudMaterial;
-			var controls;
+			var gui = new dat.GUI( { width: 350 } ), options, controls;
+			var cloud, cloudGeometry, cloudMaterial, noiseCloud;
 
+			var clock = new THREE.Clock();
 			var start_time = Date.now();
 
 			init();
@@ -58,7 +33,7 @@
 			function init() {
 				container = document.getElementById( 'container' );
 
-				camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 20000 );
+				camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.001, 20000 );
 				camera.position.y = 400;
 				camera.position.z = 500;
 
@@ -68,23 +43,27 @@
 
 				scene = new THREE.Scene();
 
+				/////////////////////Particle Clouds//////////////////////
 				//large geometry which holds all the clouds
 				cloudGeometry = new THREE.Geometry();
 
-				var texture = new THREE.TextureLoader().load( "cloud10.png");
+				var cloudTexture = new THREE.TextureLoader().load( "cloud.png");
 
 				cloudMaterial = new THREE.ShaderMaterial( {
 					uniforms: {
-						"map": { type: "t", value: texture },
+						texture: { type: "t", value: cloudTexture },
 					},
-					vertexShader: document.getElementById( 'vs' ).textContent,
-					fragmentShader: document.getElementById( 'fs' ).textContent,
-					depthWrite: false,
-					depthTest: false,
-					transparent: true
+					vertexShader : cloudVS,
+					fragmentShader : cloudFS,
+					depthWrite : false,
+					depthTest : false,
+					transparent : true
 				} );
 
+				//mesh per cloud (uses plane geometry)
 				var cloudMeshIndividual = new THREE.Mesh( new THREE.PlaneGeometry( 80, 80 ) ); //changing the plane size will also change cloud size
+
+				//modifiable values
 				var cloudSpreadWidth = 20000; //this number needs to be quite high in order for changes to be noticable
 				var cloudProximity = 10; //this determines how close the clouds are together
 				var cloudDepth = 800; //this should be changed with cloudSpreadWidth in order to create more cloud layers
@@ -106,8 +85,40 @@
 				//this is the merged cloud object
 				cloud = new THREE.Mesh( cloudGeometry, cloudMaterial );
 				scene.add( cloud );
+				/////////////////////////////////////////////////////////////////
 
-				renderer = new THREE.WebGLRenderer( { antialias: false } );
+				/////////////////////////Noise Clouds////////////////////////////
+				var cloudMaterial = new THREE.ShaderMaterial( {
+			        uniforms : {
+						color : { type : "c", value : new THREE.Color(0x111111) },
+						time : { type : "f", value : clock.elapsedTime },
+						seed : { type : "f", value : Math.random() * 19.19 },
+						invModelMatrix : { type : "m4", value : new THREE.Matrix4() },
+						scale : { type : "v3", value : new THREE.Vector3( 1, 1, 1 ) }
+						},
+			        vertexShader : noiseCloudVS,
+			        fragmentShader : noiseCloudFS,
+					transparent : true,
+					depthWrite : false,
+			        depthTest : false
+				} );
+
+				noiseCloud = new THREE.Mesh( new THREE.BoxGeometry( 1, 1, 1 ), cloudMaterial );
+				noiseCloud.scale.set( 40, 40, 40 );
+				noiseCloud.position.set( 1, 1, 2 );
+				scene.add( noiseCloud );
+				//////////////////////////////////////////////
+
+				//----------------------GUI Stuff-----------------------//
+				options = {
+					placeHolder: 0.0,
+				};
+
+				gui.add( options, "placeHolder", 0.0, 0.0);
+				//-------------------------------------------------------//
+
+				renderer = new THREE.WebGLRenderer( { antialias: false, alpha: true } ); 
+				renderer.setClearColor(0x7ec0ee); //blue sky
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				container.appendChild( renderer.domElement );
 
@@ -122,7 +133,20 @@
 			function render() {
 				position = ( ( Date.now() - start_time ) * 0.03 ) % 8000;
 				cloud.position.y += 0.5; //this is the speed at which the clouds move across the top of the scene
+
+				cloudUpdate();
+
 				renderer.render( scene, camera );
+			}
+
+			function cloudUpdate() {
+				var invModelMatrix = noiseCloud.material.uniforms.invModelMatrix.value;
+				noiseCloud.updateMatrix();
+			    invModelMatrix.getInverse( noiseCloud.matrix );
+
+			    noiseCloud.material.uniforms.time.value = clock.elapsedTime;
+			    noiseCloud.material.uniforms.invModelMatrix.value = invModelMatrix;
+			    noiseCloud.material.uniforms.scale.value = new THREE.Vector3( 40, 40, 40 );
 			}
 
 			function onWindowResize( event ) {
