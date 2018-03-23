@@ -12,21 +12,28 @@
 		</style>
 	</head>
 	<body>
+		<!--Standard Libraries-->
 		<script src="js/three.js"></script>
 		<script src="js/OrbitControls.js"></script>
 		<script src="js/dat.gui.min.js"></script>
 
+		<!--Shader Files-->
 		<script src="js/skyshader.js"></script>
+		<script src="js/cloudShader.js"></script>
+		<script src="js/waterShader.js"></script>
 
-		<script src="js/cloudShader1.js"></script>
 		<script>
+			//Standard Variables
 			var container;
-			var camera, controls, scene, renderer;
-			var sky, sunSphere, moonSphere;
-			var options;
+			var camera, scene, renderer;
+			var gui = new dat.GUI( { width: 350 } ), options, controls;
 
+			//Shader Variables
+			var sky, sunSphere, moonSphere;
 			var cloud, cloudGeometry, cloudMaterial;
+			var water, waterGeometry, waterMaterial;
 			
+			//Prototypes
 			Sky.prototype = Object.create( THREE.Mesh.prototype );
 
 			init();
@@ -38,14 +45,14 @@
 				scene = new THREE.Scene();
 
 				/////////////////////Particle Clouds//////////////////////
-				//large geometry which holds all the clouds
-				cloudGeometry = new THREE.Geometry();
+
+				cloudGeometry = new THREE.Geometry(); //large geometry which holds all the clouds
 
 				var cloudTexture = new THREE.TextureLoader().load( "images/cloud.png");
 
 				cloudMaterial = new THREE.ShaderMaterial( {
 					uniforms: {
-						texture: { type: "t", value: cloudTexture },
+						texture: { type: "t", value: cloudTexture }
 					},
 					vertexShader : cloudVS,
 					fragmentShader : cloudFS,
@@ -55,16 +62,17 @@
 				} );
 
 				//mesh per cloud (uses plane geometry)
-				var cloudMeshIndividual = new THREE.Mesh( new THREE.PlaneGeometry( 80, 80 ) ); //changing the plane size will also change cloud size
+				var cloudMeshIndividual = new THREE.Mesh( new THREE.PlaneGeometry( 100, 100 ) ); //changing the plane size will also change cloud size
 
 				//modifiable values ~ these decide how the cloud object gets assembled
-				var cloudSpreadWidth = 20000; //this number needs to be quite high in order for changes to be noticable (changes how thin or wide the object is)
-				var cloudProximity = 10; //this determines how close the clouds are together
-				var cloudDepth = 800; //this should be changed with cloudSpreadWidth in order to create more cloud layers (wider spread needs a higher depth number)
-				var cloudSize = 10.5; //this is one factor in determining the size of the clouds ~ it should be changed alongsize the (x,y) of the "cloudMeshIndividual" plane
+				var cloudSpreadWidth = 40000; //this number needs to be quite high in order for changes to be noticable (changes how thin or wide the object is)
+				var cloudProximity = 9.5; //this determines how close the clouds are together
+				var cloudDepth = 1200; //this should be changed with cloudSpreadWidth in order to create more cloud layers (wider spread needs a higher depth number)
+				var cloudSize = 15.0; //this is one factor in determining the size of the clouds ~ it should be changed alongsize the (x,y) of the "cloudMeshIndividual" plane
 				var numClouds = 10000; //tells the loop how many clouds to make
 
 				//this loop creates i amount clouds in the cloud object
+				//interior formulas shouldn't be changed, instead modify the variables above
 				for ( var i = 0; i < numClouds; i++ ) {
 					cloudMeshIndividual.position.x = Math.random() * cloudSpreadWidth;
 					cloudMeshIndividual.position.y = i * cloudProximity - numClouds;
@@ -79,12 +87,56 @@
 
 				//this is the merged cloud object
 				cloud = new THREE.Mesh( cloudGeometry, cloudMaterial );
-				cloud.rotation.x = Math.PI/2;
+				cloud.rotation.x = Math.PI/2; //this shouldn't be changed because it keeps the plane paralell to the water and the horizon
+				//modify these values to move the cloud plane
+				cloud.position.x = -2 * numClouds;
 				cloud.position.y = 2 * numClouds;
-				cloud.position.z = -10 * numClouds;
+				cloud.position.z = -8 * numClouds;
 				scene.add( cloud );
 				
 				//////////////////End Particle Clouds///////////////////
+
+				/////////////////////Water Plane///////////////////////
+
+				waterGeometry = new THREE.PlaneGeometry(3000, 3000, 20, 20); //edit (x,y) to change plane size ~ will need to stay in the thousands
+
+				var waterTexture = new THREE.TextureLoader().load("images/water.png");
+
+				waterMaterial = new THREE.ShaderMaterial({
+					uniforms: {
+						uMap: {tipe: "t", value: waterTexture},
+						uTime: {type: 'f', value: 0.0},
+						uStrength: {type: 'f', value: 20},
+						uColor: {type: 'f', value: new THREE.Color('#ADD8E6')}
+					},
+					vertexShader: waterVS,
+					fragmentShader: waterFS,
+					side: THREE.DoubleSide
+				});
+
+				water = new THREE.Mesh(waterGeometry, waterMaterial);
+				water.position.z = -1000; //position the water under the clouds and within the city
+		        water.rotateX(-Math.PI/2.0); //this shouldn't be changed as it keep the plane paralell to the clouds and the horizon
+				water.material.uniforms.uMap.value.wrapS = water.material.uniforms.uMap.value.wrapT = THREE.RepeatWrapping; //wraps the texture around the plane
+				scene.add(water);
+
+				///////////////////End Water Plane///////////////////////
+
+				///////////////////////GUI///////////////////////////
+
+				options  = {
+					Time_Speed: 2.5,
+					Cloud_Speed: 0.5,
+					Wave_Speed: 0.005,
+					Wave_Strength: 20.0
+				};
+
+				gui.add( options, "Time_Speed", 0.5, 10);
+				gui.add( options, "Cloud_Speed", 0.0, 4.0);
+				gui.add( options, "Wave_Speed", 0.001, 0.04);
+				gui.add( options, "Wave_Strength", 10.0, 80.0);
+
+				///////////////////////End GUI///////////////////////
 
 				renderer = new THREE.WebGLRenderer();
 				renderer.setPixelRatio( window.devicePixelRatio );
@@ -97,6 +149,7 @@
 				initializesky();
 				window.addEventListener( 'resize', onWindowResize, false );
 			}
+
 			function Sky(){
 				var uniforms = {
 					luminance: { value: 1.1 },
@@ -119,6 +172,7 @@
 				} );
 				THREE.Mesh.call( this, new THREE.SphereBufferGeometry( 1, 40, 15 ), material );
 			}
+
 			function initializesky() {
 				sky = new Sky();
 				sky.scale.setScalar( 450000 );
@@ -137,9 +191,7 @@
 				moonSphere.position.y =  700000;
 				moonSphere.visible = false;
 				scene.add( moonSphere );
-				options  = {
-					Time: 1
-				};
+				
 				var turbidity = 10;
 				var rayleigh = 1.5;
 				var mieCoefficient = 0.005;
@@ -153,9 +205,9 @@
 				var azimuth = 0.25;
 				var sun = false;
 				var moon = false;
-				
 				var distance = 400000;
 				var inclination = 0.49;
+
 				var uniforms = sky.material.uniforms;
 				uniforms.turbidity.value = turbidity;
 				uniforms.rayleigh.value = rayleigh;
@@ -166,6 +218,7 @@
 				uniforms.moonrayleigh.value = moonrayleigh;
 				uniforms.moonmieCoefficient.value = moonmieCoefficient;
 				uniforms.moonmieDirectionalG.value = moonmieDirectionalG;
+
 				var theta = Math.PI * ( inclination - 0.5 );
 				var phi = 2 * Math.PI * ( azimuth - 0.5 );
 				sunSphere.position.x = distance * Math.cos( phi );
@@ -173,6 +226,7 @@
 				sunSphere.position.z = distance * Math.sin( phi ) * Math.cos( theta );
 				sunSphere.visible = sun;
 				uniforms.sunPosition.value.copy( sunSphere.position );
+
 				var theta = Math.PI * ( inclination + 0.5 );
 				var phi = 2 * Math.PI * ( azimuth - 0.5 );
 				moonSphere.position.x = distance * Math.cos( phi );
@@ -180,23 +234,37 @@
 				moonSphere.position.z = distance * Math.sin( phi ) * Math.cos( theta );
 				moonSphere.visible = moon;
 				uniforms.moonPosition.value.copy( moonSphere.position );
-				var gui = new dat.GUI();
-				gui.add( options, "Time", 0.5, 10);
 			}
+
 			function onWindowResize() {
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();
 				renderer.setSize( window.innerWidth, window.innerHeight );
 			}
+
 			function animate() {
 				requestAnimationFrame( animate );
 				render();
 			}
-			function render() {
-				//cloud movement speed
-				cloud.position.z += 0.5; //this should be quite low to ensure it takes a while before the cloud object goes offscreen
 
-				var time = performance.now()/(options.Time*10000);
+			function render() {
+				//update objects in scene
+				for(var i = 0; i < scene.children.length; i++) {
+					if(scene.children[i].Update != null) {
+						scene.children[i].Update();
+					}
+				}
+
+				//cloud movement speed
+				cloud.position.z += options.Cloud_Speed;
+
+				//water movement speed
+				water.material.uniforms.uTime.value += options.Wave_Speed;
+				//water displacement strength
+				water.material.uniforms.uStrength.value = options.Wave_Strength;
+
+				//cycle behavior
+				var time = performance.now()/(options.Time_Speed*10000);
 				var uniforms = sky.material.uniforms;
 				var distance = 400000;
 				var inclination = 0.49;
