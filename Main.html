@@ -15,12 +15,15 @@
 		<!--Standard Libraries-->
 		<script src="js/three.js"></script>
 		<script src="js/OrbitControls.js"></script>
+		<script src="js/OBJLoader.js"></script>
 		<script src="js/dat.gui.min.js"></script>
 
 		<!--Shader Files-->
 		<script src="js/skyshader.js"></script>
 		<script src="js/cloudShader.js"></script>
 		<script src="js/waterShader.js"></script>
+		<script src="js/buildingshader.js"></script>
+		<script src="js/lowelevshader.js"></script>
 
 		<script>
 			//Standard Variables
@@ -32,13 +35,15 @@
 			var sky, sunSphere, moonSphere;
 			var cloud, cloudGeometry, cloudMaterial;
 			var water, waterGeometry, waterMaterial;
-			
+
+			var city, lowelev;
+
 			//Prototypes
 			Sky.prototype = Object.create( THREE.Mesh.prototype );
 
 			init();
 			animate();
-			
+
 			function init() {
 				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 100, 2000000 );
 				camera.position.set( 0, 100, 2000 );
@@ -65,10 +70,10 @@
 				var cloudMeshIndividual = new THREE.Mesh( new THREE.PlaneGeometry( 100, 100 ) ); //changing the plane size will also change cloud size
 
 				//modifiable values ~ these decide how the cloud object gets assembled
-				var cloudSpreadWidth = 40000; //this number needs to be quite high in order for changes to be noticable (changes how thin or wide the object is)
+				var cloudSpreadWidth = 240000; //this number needs to be quite high in order for changes to be noticable (changes how thin or wide the object is)
 				var cloudProximity = 9.5; //this determines how close the clouds are together
-				var cloudDepth = 1200; //this should be changed with cloudSpreadWidth in order to create more cloud layers (wider spread needs a higher depth number)
-				var cloudSize = 15.0; //this is one factor in determining the size of the clouds ~ it should be changed alongsize the (x,y) of the "cloudMeshIndividual" plane
+				var cloudDepth = 50000; //this should be changed with cloudSpreadWidth in order to create more cloud layers (wider spread needs a higher depth number)
+				var cloudSize = 60.0; //this is one factor in determining the size of the clouds ~ it should be changed alongsize the (x,y) of the "cloudMeshIndividual" plane
 				var numClouds = 10000; //tells the loop how many clouds to make
 
 				//this loop creates i amount clouds in the cloud object
@@ -79,7 +84,7 @@
 					cloudMeshIndividual.position.z = - Math.random() * Math.random() * cloudDepth;
 					cloudMeshIndividual.rotation.z = Math.random() * Math.PI *2;
 					cloudMeshIndividual.scale.x = cloudMeshIndividual.scale.y = Math.random() * cloudSize + 1.5;
-					
+
 					//each cloud "plane" is merged with the larger geometry ~ this improves performance
 					cloudMeshIndividual.updateMatrix();
 					cloudGeometry.merge(cloudMeshIndividual.geometry, cloudMeshIndividual.matrix);
@@ -89,24 +94,24 @@
 				cloud = new THREE.Mesh( cloudGeometry, cloudMaterial );
 				cloud.rotation.x = Math.PI/2; //this shouldn't be changed because it keeps the plane paralell to the water and the horizon
 				//modify these values to move the cloud plane
-				cloud.position.x = -2 * numClouds;
-				cloud.position.y = 2 * numClouds;
-				cloud.position.z = -8 * numClouds;
+				cloud.position.x = -8 * numClouds;
+				cloud.position.y = 0.6 * numClouds;
+				cloud.position.z = -5 * numClouds;
 				scene.add( cloud );
-				
+
 				//////////////////End Particle Clouds///////////////////
 
 				/////////////////////Water Plane///////////////////////
 
-				waterGeometry = new THREE.PlaneGeometry(3000, 3000, 20, 20); //edit (x,y) to change plane size ~ will need to stay in the thousands
+				waterGeometry = new THREE.PlaneGeometry(16000, 16000, 20, 20); //edit (x,y) to change plane size ~ will need to stay in the thousands
 
 				var waterTexture = new THREE.TextureLoader().load("images/water.png");
 
 				waterMaterial = new THREE.ShaderMaterial({
 					uniforms: {
-						uMap: {tipe: "t", value: waterTexture},
+						uMap: {type: "t", value: waterTexture},
 						uTime: {type: 'f', value: 0.0},
-						uStrength: {type: 'f', value: 20},
+						uStrength: {type: 'f', value: 10},
 						uColor: {type: 'f', value: new THREE.Color('#ADD8E6')}
 					},
 					vertexShader: waterVS,
@@ -122,13 +127,68 @@
 
 				///////////////////End Water Plane///////////////////////
 
+				///////////////////Begin City Generation///////////////////////
+
+				var objloader = new THREE.OBJLoader();
+
+				var wall = new THREE.TextureLoader().load('images/win.png');
+				wall.magFilter = THREE.NearestFilter;
+				wall.minFilter = THREE.LinearMipMapLinearFilter;
+				wall.wrapS = THREE.RepeatWrapping;
+				wall.wrapT = THREE.RepeatWrapping;
+
+				objloader.load('./resources/venice.obj', function (mesh) {
+					mesh.children[0].geometry.computeFaceNormals();
+					mesh.children[0].geometry.computeVertexNormals();
+					mesh.children[0].material = new THREE.ShaderMaterial({
+						uniforms: {
+							wall: { type: 't', value: wall },
+							sunPos: { type: 'v3', value: new THREE.Vector3(1, 1, 1) },
+							moonPos: { type: 'v3', value: new THREE.Vector3(1, -1, 1) }
+						},
+						vertexShader: buildingvs,
+						fragmentShader: buildingfs
+					});
+					mesh.scale.set(1.5, 1.5, 1.5);
+					mesh.rotateX(-Math.PI/2);
+					mesh.rotateZ(Math.PI);
+					mesh.translateX(4000);
+					mesh.translateY(-2000);
+					mesh.translateZ(20);
+					city = mesh;
+					scene.add(mesh);
+				});
+
+				objloader.load('./resources/venice_lowelev.obj', function (mesh) {
+					mesh.children[0].geometry.computeFaceNormals();
+					mesh.children[0].geometry.computeVertexNormals();
+					mesh.children[0].material = new THREE.ShaderMaterial({
+						uniforms: {
+							sunPos: { type: 'v3', value: new THREE.Vector3(1, 1, 1) },
+							moonPos: { type: 'v3', value: new THREE.Vector3(1, -1, 1) }
+						},
+						vertexShader: lowelevvs,
+						fragmentShader: lowelevfs
+					});
+					mesh.scale.set(1.5, 1.5, 1.5);
+					mesh.rotateX(-Math.PI/2);
+					mesh.rotateZ(Math.PI);
+					mesh.translateX(4000);
+					mesh.translateY(-2000);
+					mesh.translateZ(20);
+					lowelev = mesh;
+					scene.add(mesh);
+				});
+
+				///////////////////End Water Plane///////////////////////
+
 				///////////////////////GUI///////////////////////////
 
 				options  = {
 					Time_Speed: 2.5,
 					Cloud_Speed: 0.5,
-					Wave_Speed: 0.005,
-					Wave_Strength: 20.0
+					Wave_Speed: 0.004,
+					Wave_Strength: 10.0
 				};
 
 				gui.add( options, "Time_Speed", 0.5, 10);
@@ -146,6 +206,7 @@
 				controls.addEventListener( 'change', render );
 				controls.enableZoom = false;
 				controls.enablePan = false;
+				controls.maxPolarAngle = Math.PI/2 - 0.1;
 				initializesky();
 				window.addEventListener( 'resize', onWindowResize, false );
 			}
@@ -191,7 +252,7 @@
 				moonSphere.position.y =  700000;
 				moonSphere.visible = false;
 				scene.add( moonSphere );
-				
+
 				var turbidity = 10;
 				var rayleigh = 1.5;
 				var mieCoefficient = 0.005;
@@ -278,6 +339,16 @@
 				moonSphere.position.y = distance * Math.sin( phi ) * Math.sin( theta );
 				moonSphere.position.z = distance * Math.sin( phi ) * Math.cos( theta );
 				uniforms.moonPosition.value.copy( moonSphere.position );
+
+				// cycle building behavior
+
+				if (city != null && lowelev != null) {
+					city.children[0].material.uniforms.sunPos.value.copy(sunSphere.position);
+					lowelev.children[0].material.uniforms.sunPos.value.copy(sunSphere.position);
+					city.children[0].material.uniforms.moonPos.value.copy(moonSphere.position);
+					lowelev.children[0].material.uniforms.moonPos.value.copy(moonSphere.position);
+				}
+
 				renderer.render( scene, camera );
 			}
 		</script>

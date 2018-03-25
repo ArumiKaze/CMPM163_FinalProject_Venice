@@ -24,4 +24,3 @@ var cloudFS = `
 		gl_FragColor = texture2D( texture, vUv );
 		gl_FragColor.w *= pow( gl_FragCoord.z, 20.0 );
 	}`;
-

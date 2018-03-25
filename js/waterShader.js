@@ -47,8 +47,8 @@ var waterFS = `
         vec2 uv = vUv * 10.0 + vec2(uTime * -0.05);
         uv = fragNoise(uv);
 
-        vec4 tex1 = texture2D(uMap, uv * 1.5);
-        vec4 tex2 = texture2D(uMap, uv * 1.5 + vec2(0.2));
+        vec4 tex1 = texture2D(uMap, uv * 15.0);
+        vec4 tex2 = texture2D(uMap, uv * 15.0 + vec2(2.0));
 
         gl_FragColor = vec4(uColor.xyz + vec3(tex1.a * 0.9 - tex2.a * 0.02), 1.0);
     }`;

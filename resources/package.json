@@ -1,0 +1,13 @@
+{
+  "name": "venicethree",
+  "version": "1.0.0",
+  "description": "",
+  "main": "venicebuilder.js",
+  "scripts": {
+  },
+  "author": "Jonathan Chuang",
+  "dependencies": {
+    "earcut": "^2.1.3",
+    "xml2js": "^0.4.19"
+  }
+}
