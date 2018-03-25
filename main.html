@@ -104,6 +104,8 @@
 				/////////////////////Water Plane///////////////////////
 
 				waterGeometry = new THREE.PlaneGeometry(16000, 16000, 20, 20); //edit (x,y) to change plane size ~ will need to stay in the thousands
+				waterGeometry.computeFaceNormals();
+				waterGeometry.computeVertexNormals();
 
 				var waterTexture = new THREE.TextureLoader().load("images/water.png");
 
@@ -112,7 +114,9 @@
 						uMap: {type: "t", value: waterTexture},
 						uTime: {type: 'f', value: 0.0},
 						uStrength: {type: 'f', value: 10},
-						uColor: {type: 'f', value: new THREE.Color('#ADD8E6')}
+						uColor: {type: 'f', value: new THREE.Color('#ADD8E6')},
+						sunPos: { type: 'v3', value: new THREE.Vector3(1, 1, 1) },
+						moonPos: { type: 'v3', value: new THREE.Vector3(1, -1, 1) }
 					},
 					vertexShader: waterVS,
 					fragmentShader: waterFS,
@@ -120,6 +124,8 @@
 				});
 
 				water = new THREE.Mesh(waterGeometry, waterMaterial);
+				water.geometry.computeFaceNormals();
+				water.geometry.computeVertexNormals();
 				water.position.z = -1000; //position the water under the clouds and within the city
 		        water.rotateX(-Math.PI/2.0); //this shouldn't be changed as it keep the plane paralell to the clouds and the horizon
 				water.material.uniforms.uMap.value.wrapS = water.material.uniforms.uMap.value.wrapT = THREE.RepeatWrapping; //wraps the texture around the plane
@@ -345,8 +351,10 @@
 				if (city != null && lowelev != null) {
 					city.children[0].material.uniforms.sunPos.value.copy(sunSphere.position);
 					lowelev.children[0].material.uniforms.sunPos.value.copy(sunSphere.position);
+					water.material.uniforms.sunPos.value.copy(sunSphere.position);
 					city.children[0].material.uniforms.moonPos.value.copy(moonSphere.position);
 					lowelev.children[0].material.uniforms.moonPos.value.copy(moonSphere.position);
+					water.material.uniforms.moonPos.value.copy(moonSphere.position);
 				}
 
 				renderer.render( scene, camera );

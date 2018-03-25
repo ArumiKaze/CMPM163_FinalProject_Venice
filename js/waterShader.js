@@ -6,6 +6,7 @@ var waterVS = `
     uniform float uTime;
     uniform float uStrength;
     varying vec2 vUv;
+	varying vec3 vNormal;
 
     float calculateSurface(float x, float z) {
         float y = 0.0;
@@ -17,6 +18,7 @@ var waterVS = `
 
     void main() {
         vUv = uv;
+		vNormal = normal;
         vec3 pos = position;
 
         pos.z += uStrength * calculateSurface(pos.x, pos.y);
@@ -31,6 +33,9 @@ var waterFS = `
     uniform float uStrength;
     uniform sampler2D uMap;
     uniform vec3 uColor;
+	uniform vec3 sunPos;
+	uniform vec3 moonPos;
+	varying vec3 vNormal;
 
     vec2 fragNoise(vec2 pos) {
         vec2 noisePos = pos;
@@ -50,5 +55,30 @@ var waterFS = `
         vec4 tex1 = texture2D(uMap, uv * 15.0);
         vec4 tex2 = texture2D(uMap, uv * 15.0 + vec2(2.0));
 
-        gl_FragColor = vec4(uColor.xyz + vec3(tex1.a * 0.9 - tex2.a * 0.02), 1.0);
+        vec4 final = vec4(uColor.xyz + vec3(tex1.a * 0.9 - tex2.a * 0.02), 1.0);
+		
+		if (sunPos.y > 0.0) {
+			vec3 sunDirection = normalize(sunPos.xyz);
+			float sunDiffuse = min(max(dot(vNormal, sunDirection), 0.5), 0.85);
+			if (vNormal.y == 1.0) {
+				gl_FragColor = vec4(vec3(0.75, 0.72, 0.65)*sunDiffuse, 1.0)*final;
+			} 
+			else {
+				gl_FragColor = vec4(vec3(0.67, 0.62, 0.53)*sunDiffuse, 1.0)*final;
+			}
+		} 
+		else {
+			vec3 moonDirection = normalize(moonPos.xyz);
+			float moonDiffuse = min(max(dot(vNormal, moonDirection), 0.2), 0.6);
+			if (vNormal.y == 1.0) {
+				gl_FragColor = vec4(vec3(0.75, 0.72, 0.65)*moonDiffuse, 1.0)*final;
+				gl_FragColor.z = gl_FragColor.z*1.2;
+				gl_FragColor = normalize(gl_FragColor);
+			} 
+			else {
+				gl_FragColor = vec4(vec3(0.67, 0.62, 0.53)*moonDiffuse, 1.0)*final;
+				gl_FragColor.z = gl_FragColor.z*1.2;
+				gl_FragColor = normalize(gl_FragColor);
+			}
+		}
     }`;
